@@ -75,7 +75,7 @@ df <- df %>%
 
 # ───────────────────────────────────────────────────────────────────────────────
 # long format + diel statistics (mean ± SD per variable, per year; 48 bins)
-# use FCH4_use as the methane flux
+# use FCH4_use as the methane flux in the general multi-variable plots
 diel_df <- df %>%
   pivot_longer(
     cols = c(FCH4_use, H, LE, NEE),
@@ -95,7 +95,7 @@ diel_df <- df %>%
     year  = factor(year)
   )
 
-# aggregate across years for each month / hour_num / variable
+# aggregate across years for each month / hour_num / variable (for FCH4_use etc.)
 diel_df_all <- diel_df %>%
   group_by(month, hour_num, variable) %>%
   summarise(
@@ -106,7 +106,35 @@ diel_df_all <- diel_df %>%
     .groups    = "drop"
   )
 
-# colors and labels for variables
+# ───────────────────────────────────────────────────────────────────────────────
+# separate diel stats for PURE FCH4 (ignores FCH4_f completely)
+diel_df_FCH4 <- df %>%
+  drop_na(FCH4, hour_num, month, year) %>%
+  group_by(year, month, hour_num) %>%
+  summarise(
+    mean_value = mean(FCH4, na.rm = TRUE),
+    sd_value   = sd(FCH4,   na.rm = TRUE),
+    .groups    = "drop"
+  ) %>%
+  mutate(
+    lower = mean_value - sd_value,
+    upper = mean_value + sd_value,
+    year  = factor(year)
+  )
+
+# aggregate PURE FCH4 across years
+diel_df_all_FCH4 <- diel_df_FCH4 %>%
+  group_by(month, hour_num) %>%
+  summarise(
+    mean_value = mean(mean_value, na.rm = TRUE),
+    sd_value   = mean(sd_value,   na.rm = TRUE),
+    lower      = mean(lower,      na.rm = TRUE),
+    upper      = mean(upper,      na.rm = TRUE),
+    .groups    = "drop"
+  )
+
+# ───────────────────────────────────────────────────────────────────────────────
+# colors and labels for variables (for FCH4_use multi-variable plots)
 var_cols <- c(
   FCH4_use = "#D73027",   # red
   H        = "#1A9850",   # green
@@ -122,7 +150,7 @@ var_labs <- c(
 )
 
 # ───────────────────────────────────────────────────────────────────────────────
-# diel plot with SD ribbons and correct units in legend
+# diel plot with SD ribbons and correct units in legend (FCH4_use, H, LE, NEE)
 p <- ggplot(diel_df, aes(x = hour_num)) +
   geom_ribbon(
     aes(ymin = lower, ymax = upper, fill = variable, group = variable),
@@ -140,7 +168,7 @@ p <- ggplot(diel_df, aes(x = hour_num)) +
   facet_wrap(~ month, ncol = 3) +
   theme_bw() +
   labs(
-    title = "Diel Cycles at Tambopata: FCH4 (FCH4_f/FCH4), H, LE and NEE",
+    title = "Diel Cycles at Tambopata: FCH4_use, H, LE and NEE",
     x = "Hour of Day",
     y = "Value (FCH4: nmol m\u207b\u00b2 s\u207b\u00b9; H, LE: W m\u207b\u00b2; NEE: \u03bc mol m\u207b\u00b2 s\u207b\u00b9)",
     colour = "Variable",
@@ -169,7 +197,7 @@ ggsave(
 )
 
 # ───────────────────────────────────────────────────────────────────────────────
-# PLOT 1: H + LE
+# PLOT 1: H + LE (using FCH4_use dataset, but only H & LE)
 diel_H_LE <- diel_df %>% 
   filter(variable %in% c("H", "LE"))
 
@@ -214,7 +242,7 @@ ggsave(
 diel_FCH4use <- diel_df %>% 
   filter(variable == "FCH4_use")
 
-p_FCH4 <- ggplot(diel_FCH4use, aes(x = hour_num)) +
+p_FCH4_use_year <- ggplot(diel_FCH4use, aes(x = hour_num)) +
   geom_ribbon(
     aes(ymin = lower, ymax = upper, group = year, fill = year),
     alpha = 0.20,
@@ -251,14 +279,14 @@ p_FCH4 <- ggplot(diel_FCH4use, aes(x = hour_num)) +
 
 ggsave(
   filename = paste0(graphs_path, "diel_FCH4use_by_year_with_SD.png"),
-  plot = p_FCH4,
+  plot = p_FCH4_use_year,
   width = 12,
   height = 6,
   dpi = 300
 )
 
 # PLOT: FCH4_use only, by year WITH SD ribbons, Y-axis limited
-p_FCH4_limited <- ggplot(diel_FCH4use, aes(x = hour_num)) +
+p_FCH4_use_limited <- ggplot(diel_FCH4use, aes(x = hour_num)) +
   geom_ribbon(
     aes(ymin = lower, ymax = upper, group = year, fill = year),
     alpha = 0.20,
@@ -296,18 +324,17 @@ p_FCH4_limited <- ggplot(diel_FCH4use, aes(x = hour_num)) +
 
 ggsave(
   filename = paste0(graphs_path, "diel_FCH4use_by_year_with_SD_ylim_-20_20.png"),
-  plot = p_FCH4_limited,
+  plot = p_FCH4_use_limited,
   width = 12,
   height = 6,
   dpi = 300
 )
 
 # ───────────────────────────────────────────────────────────────────────────────
-# NEW PLOT: FCH4_use, single panel, lines coloured by month (all years combined)
-diel_FCH4use_month <- diel_df_all %>%
-  filter(variable == "FCH4_use")
+# NEW PLOT A: PURE FCH4, single panel, lines coloured by month (all years combined)
+diel_FCH4_month <- diel_df_all_FCH4
 
-p_FCH4_month_lines <- ggplot(diel_FCH4use_month,
+p_FCH4_month_lines <- ggplot(diel_FCH4_month,
                              aes(x = hour_num,
                                  y = mean_value,
                                  colour = month,
@@ -316,9 +343,9 @@ p_FCH4_month_lines <- ggplot(diel_FCH4use_month,
   geom_point(size = 1.6) +
   theme_bw() +
   labs(
-    title  = "Diel Cycle at Tambopata (upland forest - terra firme): FCH4_use by Month (All Years Combined)",
+    title  = "Diel Cycle at Tambopata (terra firme)",
     x      = "Hour of Day",
-    y      = "FCH4_use (nmol m\u207b\u00b2 s\u207b\u00b9)",
+    y      = "FCH4 (nmol m\u207b\u00b2 s\u207b\u00b9)",
     colour = "Month"
   ) +
   scale_x_continuous(
@@ -334,8 +361,47 @@ p_FCH4_month_lines <- ggplot(diel_FCH4use_month,
 print(p_FCH4_month_lines)
 
 ggsave(
-  filename = paste0(graphs_path, "diel_FCH4use_by_month_single_panel.png"),
+  filename = paste0(graphs_path, "diel_FCH4_by_month_single_panel.png"),
   plot     = p_FCH4_month_lines,
+  width    = 8,
+  height   = 5,
+  dpi      = 300
+)
+
+# ───────────────────────────────────────────────────────────────────────────────
+# NEW PLOT B: FCH4_use, single panel, lines coloured by month (all years combined)
+diel_FCH4use_month <- diel_df_all %>%
+  filter(variable == "FCH4_use")
+
+p_FCH4use_month_lines <- ggplot(diel_FCH4use_month,
+                                aes(x = hour_num,
+                                    y = mean_value,
+                                    colour = month,
+                                    group  = month)) +
+  geom_line(linewidth = 1.0) +
+  geom_point(size = 1.6) +
+  theme_bw() +
+  labs(
+    title  = "Diel Cycle at Tambopata (terra firme): FCH4_use by Month (All Years Combined)",
+    x      = "Hour of Day",
+    y      = "FCH4_use (nmol m\u207b\u00b2 s\u207b\u00b9)",
+    colour = "Month"
+  ) +
+  scale_x_continuous(
+    breaks = c(2, 8, 14, 20),
+    labels = c("02:00", "08:00", "14:00", "20:00")
+  ) +
+  scale_colour_viridis_d(option = "turbo") +
+  geom_hline(yintercept = 0, colour = "grey40", linewidth = 0.4) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+print(p_FCH4use_month_lines)
+
+ggsave(
+  filename = paste0(graphs_path, "diel_FCH4use_by_month_single_panel.png"),
+  plot     = p_FCH4use_month_lines,
   width    = 8,
   height   = 5,
   dpi      = 300
