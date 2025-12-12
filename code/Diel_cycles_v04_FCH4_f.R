@@ -345,7 +345,7 @@ p_FCH4_month_lines <- ggplot(diel_FCH4_month,
   labs(
     title  = "Diel Cycle at Tambopata (terra firme)",
     x      = "Hour of Day",
-    y      = "FCH4 (nmol m\u207b\u00b2 s\u207b\u00b9)",
+    y      = expression(FCH[4]~"(nmol m"^{-2}*" s"^{-1}*")"),
     colour = "Month"
   ) +
   scale_x_continuous(
